@@ -443,3 +443,69 @@ class Conformer(nn.Module):
         tran_cls = self.trans_cls_head(x_t[:, 0])
 
         return [conv_cls, tran_cls]
+
+class ConformerKeypointDetector(nn.Module):
+    def __init__(self, num_keypoints, conformer_kwargs=None):
+        super().__init__()
+        if conformer_kwargs is None:
+            conformer_kwargs = {}
+
+        # 1. Initialize the official backbone provided above
+        self.backbone = Conformer(**conformer_kwargs)
+
+        # 2. Derive output channels
+        # Based on: stage_3_channel = int(base_channel * channel_ratio * 2 * 2)
+        # Using default kwargs: 64 * 4 * 2 * 2 = 1024
+        base_channel = conformer_kwargs.get('base_channel', 64)
+        channel_ratio = conformer_kwargs.get('channel_ratio', 4)
+        in_channels = int(base_channel * channel_ratio * 4)
+
+        # 3. Attach Custom Keypoint Head
+        # The Conformer heavily downsamples the spatial map (1/32 scale).
+        # Three transposed convolutions upsample the spatial map 8x, yielding a 1/4 resolution heatmap.
+        self.keypoint_head = nn.Sequential(
+            nn.ConvTranspose2d(in_channels, 256, kernel_size=4, stride=2, padding=1),
+            nn.BatchNorm2d(256),
+            nn.ReLU(inplace=True),
+            nn.ConvTranspose2d(256, 128, kernel_size=4, stride=2, padding=1),
+            nn.BatchNorm2d(128),
+            nn.ReLU(inplace=True),
+            nn.ConvTranspose2d(128, 64, kernel_size=4, stride=2, padding=1),
+            nn.BatchNorm2d(64),
+            nn.ReLU(inplace=True),
+            nn.Conv2d(64, num_keypoints, kernel_size=1, stride=1, padding=0)
+        )
+
+    def extract_spatial_features(self, x):
+        """
+        Bypasses the final pooling and classification heads of the standard Conformer.
+        Reproduces the forward pass up to the extraction of the 2D CNN features.
+        """
+        B = x.shape[0]
+        cls_tokens = self.backbone.cls_token.expand(B, -1, -1)
+
+        # Stem stage
+        x_base = self.backbone.maxpool(self.backbone.act1(self.backbone.bn1(self.backbone.conv1(x))))
+
+        # 1 stage
+        x_cnn = self.backbone.conv_1(x_base, return_x_2=False)
+        x_t = self.backbone.trans_patch_conv(x_base).flatten(2).transpose(1, 2)
+        x_t = torch.cat([cls_tokens, x_t], dim=1)
+        x_t = self.backbone.trans_1(x_t)
+
+        # 2 ~ final stages
+        for i in range(2, self.backbone.fin_stage):
+            conv_trans_layer = getattr(self.backbone, f'conv_trans_{i}')
+            x_cnn, x_t = conv_trans_layer(x_cnn, x_t)
+
+        # Return ONLY the 2D spatial feature map (ignoring transformer tokens)
+        return x_cnn
+
+    def forward(self, x):
+        # 1. Intercept the 2D features (Shape: B, 1024, H/32, W/32)
+        spatial_features = self.extract_spatial_features(x)
+
+        # 2. Decode into heatmaps (Shape: B, num_keypoints, H/4, W/4)
+        heatmaps = self.keypoint_head(spatial_features)
+
+        return heatmaps

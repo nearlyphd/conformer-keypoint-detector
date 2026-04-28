@@ -92,3 +92,39 @@ def Conformer_base_patch16(pretrained=False, **kwargs):
     if pretrained:
         raise NotImplementedError
     return model
+
+@register_model
+def Conformer_tiny_patch16_keypoint(pretrained=False, num_keypoints=3, **kwargs):
+    conformer_kwargs = dict(patch_size=16, channel_ratio=1, embed_dim=384, depth=12,
+                            num_heads=6, mlp_ratio=4, qkv_bias=True, **kwargs)
+    model = ConformerKeypointDetector(num_keypoints=num_keypoints, conformer_kwargs=conformer_kwargs)
+    if pretrained:
+        raise NotImplementedError("Pretrained weights not implemented for keypoint wrapper.")
+    return model
+
+@register_model
+def Conformer_small_patch16_keypoint(pretrained=False, num_keypoints=3, **kwargs):
+    conformer_kwargs = dict(patch_size=16, channel_ratio=4, embed_dim=384, depth=12,
+                            num_heads=6, mlp_ratio=4, qkv_bias=True, **kwargs)
+    model = ConformerKeypointDetector(num_keypoints=num_keypoints, conformer_kwargs=conformer_kwargs)
+    if pretrained:
+        raise NotImplementedError("Pretrained weights not implemented for keypoint wrapper.")
+    return model
+
+@register_model
+def Conformer_small_patch32_keypoint(pretrained=False, num_keypoints=3, **kwargs):
+    conformer_kwargs = dict(patch_size=32, channel_ratio=4, embed_dim=384, depth=12,
+                            num_heads=6, mlp_ratio=4, qkv_bias=True, **kwargs)
+    model = ConformerKeypointDetector(num_keypoints=num_keypoints, conformer_kwargs=conformer_kwargs)
+    if pretrained:
+        raise NotImplementedError("Pretrained weights not implemented for keypoint wrapper.")
+    return model
+
+@register_model
+def Conformer_base_patch16_keypoint(pretrained=False, num_keypoints=3, **kwargs):
+    conformer_kwargs = dict(patch_size=16, channel_ratio=6, embed_dim=576, depth=12,
+                            num_heads=9, mlp_ratio=4, qkv_bias=True, **kwargs)
+    model = ConformerKeypointDetector(num_keypoints=num_keypoints, conformer_kwargs=conformer_kwargs)
+    if pretrained:
+        raise NotImplementedError("Pretrained weights not implemented for keypoint wrapper.")
+    return model
