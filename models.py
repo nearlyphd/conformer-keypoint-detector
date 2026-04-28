@@ -5,7 +5,7 @@ from functools import partial
 # from timm.models.vision_transformer import VisionTransformer, _cfg
 
 from vision_transformer import VisionTransformer, _cfg
-from conformer import Conformer
+from conformer import Conformer, ConformerKeypointDetector
 from timm.models.registry import register_model
 
 
